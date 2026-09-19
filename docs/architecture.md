@@ -127,6 +127,39 @@ flowchart TB
 | Observability | Step-level trace: node, input/output, latency, tokens, errors |
 | Budget & guardrails | Enforces hard limits on searches/iterations/tokens; treats web content as untrusted |
 
+## External service constraints (verified 2026-09-19)
+
+These are hard operational limits, not defaults we assume — verified against
+official docs at time of writing. Re-check before relying on exact numbers,
+as providers change these.
+
+### Groq API (LLM inference)
+- Free tier, no credit card required, access to all hosted models.
+- Limits apply **per model, per organization** (not per API key) across
+  RPM / RPD / TPM / TPD (requests and tokens, per minute and per day).
+- Example: `llama-3.1-8b-instant` ≈ 30 RPM / 14,400 RPD.
+  `llama-3.3-70b-versatile` ≈ 30 RPM / 1,000 RPD, ~12K TPM / 100K TPD.
+  Exact current limits: `console.groq.com/settings/limits` (per-account, live).
+- Exceeding any dimension → HTTP 429 with a `retry-after` header, plus
+  `x-ratelimit-remaining-*` headers on every response for proactive throttling.
+- **Design implication:** retry/backoff using the real `retry-after` header
+  is mandatory infrastructure, not optional polish. Model choice affects
+  budget headroom — may justify routing cheap operations to a
+  higher-RPD model later (Phase 6+, not yet implemented).
+
+### Tavily (web search)
+- Free "Researcher" plan, no credit card required.
+- **1,000 API credits/month**, resets on the 1st of each calendar month.
+- 1 basic search = 1 credit. Covers search + extract endpoints.
+- Rate limit: 100 requests/minute on a dev key.
+- No overage billing on free tier — blocked/429 once credits exhausted,
+  not silently charged.
+- **Design implication:** this is the real ceiling for the whole project.
+  At ~6 searches/run (budget cap, see Budget & Guardrails), ~150+ full
+  research runs/month are possible before exhausting the monthly quota.
+  This number directly justifies the "max searches per subquestion" and
+  "max total searches per run" budget limits — not arbitrary values.
+  
 ## Known simplifications (current phase)
 
 - No Redis yet — introduced deliberately in Phase 5 alongside checkpointing/crash-recovery teaching.
