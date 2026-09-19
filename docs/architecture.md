@@ -127,39 +127,43 @@ flowchart TB
 | Observability | Step-level trace: node, input/output, latency, tokens, errors |
 | Budget & guardrails | Enforces hard limits on searches/iterations/tokens; treats web content as untrusted |
 
-## External service constraints (verified 2026-09-19)
+## External service constraints (verified 2026-09-20, against live account dashboards)
 
-These are hard operational limits, not defaults we assume — verified against
-official docs at time of writing. Re-check before relying on exact numbers,
-as providers change these.
+These are hard operational limits, verified directly against our own account
+dashboards — not secondary sources, which were found to reference outdated
+model names during initial research. Re-check periodically, as providers
+change these without notice.
 
 ### Groq API (LLM inference)
-- Free tier, no credit card required, access to all hosted models.
+- Free tier, no credit card required.
 - Limits apply **per model, per organization** (not per API key) across
-  RPM / RPD / TPM / TPD (requests and tokens, per minute and per day).
-- Example: `llama-3.1-8b-instant` ≈ 30 RPM / 14,400 RPD.
-  `llama-3.3-70b-versatile` ≈ 30 RPM / 1,000 RPD, ~12K TPM / 100K TPD.
-  Exact current limits: `console.groq.com/settings/limits` (per-account, live).
+  RPM / RPD / TPM / TPD.
+- Available chat models (verified via account dashboard, 2026-09-20):
+  `allam-2-7b`, `groq/compound`, `groq/compound-mini`, `openai/gpt-oss-120b`,
+  `openai/gpt-oss-20b`, `openai/gpt-oss-safeguard-20b`, `qwen/qwen3.8-27b`.
+- **Chosen model: `openai/gpt-oss-120b`** — largest available model at the
+  same free-tier ceiling as the smaller `20b` variant, so no capability
+  tradeoff exists at this tier.
+  Limits: 30 RPM / 1,000 RPD / 8,000 TPM / 200,000 TPD.
 - Exceeding any dimension → HTTP 429 with a `retry-after` header, plus
-  `x-ratelimit-remaining-*` headers on every response for proactive throttling.
-- **Design implication:** retry/backoff using the real `retry-after` header
-  is mandatory infrastructure, not optional polish. Model choice affects
-  budget headroom — may justify routing cheap operations to a
-  higher-RPD model later (Phase 6+, not yet implemented).
+  `x-ratelimit-remaining-*` headers on every response.
+- **Design implication:** 1,000 requests/day is a hard daily ceiling. At an
+  estimated 5-6 LLM calls per research run (planner, researchers, reviewer,
+  writer), this supports roughly 150-200 full research runs/day — sufficient
+  for a learning/portfolio project, but a real number that belongs in
+  budget-enforcement logic (Phase 5), not just a note.
 
 ### Tavily (web search)
 - Free "Researcher" plan, no credit card required.
 - **1,000 API credits/month**, resets on the 1st of each calendar month.
 - 1 basic search = 1 credit. Covers search + extract endpoints.
 - Rate limit: 100 requests/minute on a dev key.
-- No overage billing on free tier — blocked/429 once credits exhausted,
-  not silently charged.
-- **Design implication:** this is the real ceiling for the whole project.
-  At ~6 searches/run (budget cap, see Budget & Guardrails), ~150+ full
-  research runs/month are possible before exhausting the monthly quota.
-  This number directly justifies the "max searches per subquestion" and
-  "max total searches per run" budget limits — not arbitrary values.
-  
+- No overage billing on free tier — blocked/429 once credits exhausted.
+- **Design implication:** at ~6 searches/run (budget cap, see Budget &
+  Guardrails), supports 150+ full research runs/month before exhausting
+  the monthly quota. This number directly justifies the "max searches
+  per subquestion" and "max total searches per run" budget limits.
+
 ## Known simplifications (current phase)
 
 - No Redis yet — introduced deliberately in Phase 5 alongside checkpointing/crash-recovery teaching.
