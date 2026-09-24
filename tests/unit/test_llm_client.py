@@ -3,19 +3,21 @@ from app.core.exceptions import LLMValidationError
 from app.models.example import MovieRecommendation
 from app.services.llm_client import LLMClient
 
+
 def test_generate_returns_valid_object_on_first_success(mocker):
     fake_response_content = (
-        '{"title": "Dune", "year": 2021, "genre": "Sci-Fi", '
-        '"one_line_reason": "Great visuals."}'
+        '{"title": "Dune", "year": 2021, "genre": "Sci-Fi", "one_line_reason": "Great visuals."}'
     )
 
-    mock_groq_client = mocker.patch("app.services.llm_client.Groq") # temporarily replace a real thing with a fake,
+    mock_groq_client = mocker.patch(
+        "app.services.llm_client.Groq"
+    )  # temporarily replace a real thing with a fake,
     # A MagicMock can automatically
-    #create fake children when you access them.
+    # create fake children when you access them.
     mock_create = mock_groq_client.return_value.chat.completions.create
     mock_create.return_value.choices = [
         mocker.Mock(message=mocker.Mock(content=fake_response_content))
-    ]#fake response returned when create() is called
+    ]  # fake response returned when create() is called
 
     client = LLMClient()
     result = client.generate(
@@ -31,8 +33,12 @@ def test_generate_returns_valid_object_on_first_success(mocker):
 
 
 def test_generate_retries_after_validation_failure_then_succeeds(mocker):
-    bad_json = '{"title": "Dune", "year": "not a number", "genre": "Sci-Fi", "one_line_reason": "x"}'
-    good_json = '{"title": "Dune", "year": 2021, "genre": "Sci-Fi", "one_line_reason": "Great visuals."}'
+    bad_json = (
+        '{"title": "Dune", "year": "not a number", "genre": "Sci-Fi", "one_line_reason": "x"}'
+    )
+    good_json = (
+        '{"title": "Dune", "year": 2021, "genre": "Sci-Fi", "one_line_reason": "Great visuals."}'
+    )
 
     mock_groq_client = mocker.patch("app.services.llm_client.Groq")
     mock_create = mock_groq_client.return_value.chat.completions.create
@@ -53,13 +59,13 @@ def test_generate_retries_after_validation_failure_then_succeeds(mocker):
 
 
 def test_generate_raises_after_exhausting_validation_retries(mocker):
-    always_bad_json = '{"title": "Dune", "year": "not a number", "genre": "Sci-Fi", "one_line_reason": "x"}'
+    always_bad_json = (
+        '{"title": "Dune", "year": "not a number", "genre": "Sci-Fi", "one_line_reason": "x"}'
+    )
 
     mock_groq_client = mocker.patch("app.services.llm_client.Groq")
     mock_create = mock_groq_client.return_value.chat.completions.create
-    mock_create.return_value.choices = [
-        mocker.Mock(message=mocker.Mock(content=always_bad_json))
-    ]
+    mock_create.return_value.choices = [mocker.Mock(message=mocker.Mock(content=always_bad_json))]
 
     client = LLMClient()
 
