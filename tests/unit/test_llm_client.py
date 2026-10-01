@@ -1,4 +1,5 @@
 import pytest
+
 from app.core.exceptions import LLMValidationError
 from app.models.example import MovieRecommendation
 from app.services.llm_client import LLMClient

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     groq_api_key: str = Field(..., min_length=1)
+    tavily_api_key: str = Field(..., min_length=1)
 
 
 settings = Settings()

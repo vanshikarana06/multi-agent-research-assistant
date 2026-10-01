@@ -5,9 +5,7 @@ from app.models.plan import ResearchPlan, SubQuestion
 def test_create_plan_returns_valid_research_plan(mocker):
     fake_plan = ResearchPlan(
         research_objective="Test objective",
-        subquestions=[
-            SubQuestion(id="q1", question="Q1?", priority="high", expected_evidence="x")
-        ],
+        subquestions=[SubQuestion(id="q1", question="Q1?", priority="high", expected_evidence="x")],
         search_strategy="Test strategy",
     )
 
