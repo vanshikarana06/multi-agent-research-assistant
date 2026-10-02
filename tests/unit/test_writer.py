@@ -4,7 +4,7 @@ from app.agents.writer import WriterAgent
 from app.core.exceptions import CitationValidationError
 from app.models.finding import Finding, Source
 from app.models.plan import ResearchPlan, SubQuestion
-from app.models.report import ResearchReport, ReportSection, Citation
+from app.models.report import Citation, ReportSection, ResearchReport
 
 
 def _make_finding(finding_id: str) -> Finding:

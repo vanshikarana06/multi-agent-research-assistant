@@ -1,10 +1,9 @@
 # app/models/finding.py
-from uuid import uuid4
-
 from datetime import datetime
 from typing import Literal
+from uuid import uuid4
+
 from pydantic import BaseModel, Field, HttpUrl
-from pydantic import BaseModel, HttpUrl
 
 
 class Source(BaseModel):

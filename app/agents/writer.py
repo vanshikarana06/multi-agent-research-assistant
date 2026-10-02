@@ -1,5 +1,4 @@
 # app/agents/writer.py
-from pydantic import BaseModel
 
 from app.models.finding import Finding
 from app.models.plan import ResearchPlan
