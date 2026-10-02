@@ -3,6 +3,8 @@ from app.agents.researcher import ResearcherAgent
 from app.agents.writer import WriterAgent
 from app.graph.state import ResearchState
 
+MAX_RESEARCH_PASSES = 2
+
 
 def make_plan_node(planner: PlannerAgent):
     def plan_node(state: ResearchState) -> dict:
@@ -28,3 +30,15 @@ def make_write_node(writer: WriterAgent):
         return {"final_report": report, "status": "done"}
 
     return write_node
+
+
+def review_node(state: ResearchState) -> dict:
+    return {"research_pass_count": state.research_pass_count + 1}
+
+
+def route_after_review(state: ResearchState) -> str:
+    if len(state.findings) == 0:
+        if state.research_pass_count >= MAX_RESEARCH_PASSES:
+            return "write"  # give up, write whatever we have (even if empty)
+        return "research"
+    return "write"

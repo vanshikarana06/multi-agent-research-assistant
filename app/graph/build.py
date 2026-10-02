@@ -7,6 +7,7 @@ from app.graph.nodes import make_plan_node, make_research_node, make_write_node
 from app.graph.state import ResearchState
 from app.services.llm_client import LLMClient
 from app.services.search_client import SearchClient
+from app.graph.nodes import review_node, route_after_review
 
 
 def build_graph():
@@ -22,10 +23,12 @@ def build_graph():
     graph_builder.add_node("plan", make_plan_node(planner))
     graph_builder.add_node("research", make_research_node(researcher))
     graph_builder.add_node("write", make_write_node(writer))
+    graph_builder.add_node("review", review_node)
 
     graph_builder.add_edge(START, "plan")
     graph_builder.add_edge("plan", "research")
-    graph_builder.add_edge("research", "write")
+    graph_builder.add_edge("research", "review")
+    graph_builder.add_conditional_edges("review", route_after_review)
     graph_builder.add_edge("write", END)
 
     return graph_builder.compile()
