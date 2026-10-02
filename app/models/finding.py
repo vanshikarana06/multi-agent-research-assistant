@@ -1,7 +1,9 @@
 # app/models/finding.py
+from uuid import uuid4
+
 from datetime import datetime
 from typing import Literal
-
+from pydantic import BaseModel, Field, HttpUrl
 from pydantic import BaseModel, HttpUrl
 
 
@@ -13,6 +15,7 @@ class Source(BaseModel):
 
 
 class Finding(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
     claim: str
     evidence: str
     source: Source

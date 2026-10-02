@@ -38,7 +38,7 @@ def test_research_returns_findings_with_real_source_data(mocker):
     # assert exactly 1 finding returned
     assert len(findings) == 1
     finding = findings[0]
-    # assert the finding's source.url is "https://example.com/b" 
+    # assert the finding's source.url is "https://example.com/b"
     # (NOT /a — proves index 1 was used correctly)
     assert str(finding.source.url) == "https://example.com/b"
     assert finding.subquestion_id == "sq1"
