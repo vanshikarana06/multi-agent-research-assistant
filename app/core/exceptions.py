@@ -13,3 +13,11 @@ class LLMValidationError(LLMError):
     def __init__(self, message: str, raw_output: str) -> None:
         super().__init__(message)
         self.raw_output = raw_output
+
+
+class CitationValidationError(Exception):
+    """Raised when a report cites a finding_id that doesn't exist in the provided findings."""
+
+    def __init__(self, message: str, invalid_finding_ids: list[str]) -> None:
+        super().__init__(message)
+        self.invalid_finding_ids = invalid_finding_ids

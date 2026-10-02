@@ -23,14 +23,14 @@ def test_research_returns_findings_with_real_source_data(mocker):
         ]
     )
 
-    # TODO: create mock_search_client with .search() returning fake_search_results
+    # create mock_search_client with .search() returning fake_search_results
     mock_search_client = mocker.Mock()
     mock_search_client.search.return_value = fake_search_results
 
-    # TODO: create mock_llm_client with .generate() returning fake_extracted
+    # create mock_llm_client with .generate() returning fake_extracted
     mock_llm_client = mocker.Mock()
     mock_llm_client.generate.return_value = fake_extracted
-    # TODO: instantiate ResearcherAgent with both mocks
+    # instantiate ResearcherAgent with both mocks
     agent = ResearcherAgent(llm_client=mock_llm_client, search_client=mock_search_client)
 
     # call .research(subquestion)
