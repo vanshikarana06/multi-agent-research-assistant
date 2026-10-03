@@ -16,4 +16,5 @@ class ResearchState(BaseModel):
     findings: Annotated[list[Finding], add] = []
     status: Literal["planning", "researching", "writing", "done", "failed"] = "planning"
     research_pass_count: int = 0
+    total_searches_used: int = 0
     final_report: ResearchReport | None = None

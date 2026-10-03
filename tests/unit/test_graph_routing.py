@@ -1,4 +1,4 @@
-from app.graph.nodes import MAX_RESEARCH_PASSES, route_after_review
+from app.graph.nodes import MAX_RESEARCH_PASSES, MAX_TOTAL_SEARCHES, route_after_review
 from app.graph.state import ResearchState
 from app.models.finding import Finding, Source
 
@@ -42,5 +42,16 @@ def test_route_after_review_goes_to_write_when_findings_exist():
         research_question="q",
         findings=[finding],
         research_pass_count=0,
+    )
+    assert route_after_review(state) == "write"
+
+
+def test_route_after_review_goes_to_write_when_total_search_budget_exhausted():
+    state = ResearchState(
+        run_id="t1",
+        research_question="q",
+        findings=[],
+        research_pass_count=0,
+        total_searches_used=MAX_TOTAL_SEARCHES,  # Set to the maximum allowed searches
     )
     assert route_after_review(state) == "write"

@@ -16,7 +16,7 @@ def test_deduplicate_findings_removes_duplicate_urls():
     findings = [
         _make_finding("https://arxiv.org/abs/1234"),
         _make_finding("https://arxiv.org/abs/1234/"),  # same, just trailing slash
-        _make_finding("https://arxiv.org/abs/5678"),   # genuinely different
+        _make_finding("https://arxiv.org/abs/5678"),  # genuinely different
     ]
     result = deduplicate_findings(findings)
     assert len(result) == 2
