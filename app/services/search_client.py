@@ -10,5 +10,5 @@ class SearchClient:
         self._client = TavilyClient(api_key=settings.tavily_api_key)
 
     def search(self, query: str, max_results: int = 3) -> list[dict]:
-        response = self._client.search(query=query, max_results=max_results)
+        response = self._client.search(query=query, max_results=max_results, timeout=20)
         return response["results"]

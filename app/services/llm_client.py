@@ -16,7 +16,7 @@ class LLMClient:
     rate-limit retry (this slice), validation retry(next slice.)"""
 
     def __init__(self, model: str = "openai/gpt-oss-120b") -> None:
-        self._client = Groq(api_key=settings.groq_api_key)
+        self._client = Groq(api_key=settings.groq_api_key, timeout=20.0)
         self._model = model
 
     def _call_with_rate_limit_retry(self, messages: list[dict], max_retries: int = 3) -> str:
