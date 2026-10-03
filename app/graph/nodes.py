@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from app.agents.planner import PlannerAgent
 from app.agents.researcher import ResearcherAgent
 from app.agents.writer import WriterAgent
@@ -6,6 +8,7 @@ from app.services.dedup import deduplicate_findings
 
 MAX_RESEARCH_PASSES = 2
 MAX_TOTAL_SEARCHES: int = 15  # acc to real Tavily budget
+MAX_RUN_DURATION_SECONDS = 180
 
 
 def make_plan_node(planner: PlannerAgent):
@@ -48,6 +51,9 @@ def review_node(state: ResearchState) -> dict:
 
 
 def route_after_review(state: ResearchState) -> str:
+    elapsed = (datetime.now(UTC) - state.started_at).total_seconds()
+    if elapsed >= MAX_RUN_DURATION_SECONDS:
+        return "write"
     if len(state.findings) == 0:
         if state.research_pass_count >= MAX_RESEARCH_PASSES:
             return "write"  # give up, write whatever we have (even if empty)

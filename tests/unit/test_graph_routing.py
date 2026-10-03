@@ -1,4 +1,11 @@
-from app.graph.nodes import MAX_RESEARCH_PASSES, MAX_TOTAL_SEARCHES, route_after_review
+from datetime import UTC, datetime, timedelta
+
+from app.graph.nodes import (
+    MAX_RESEARCH_PASSES,
+    MAX_RUN_DURATION_SECONDS,
+    MAX_TOTAL_SEARCHES,
+    route_after_review,
+)
 from app.graph.state import ResearchState
 from app.models.finding import Finding, Source
 
@@ -53,5 +60,17 @@ def test_route_after_review_goes_to_write_when_total_search_budget_exhausted():
         findings=[],
         research_pass_count=0,
         total_searches_used=MAX_TOTAL_SEARCHES,  # Set to the maximum allowed searches
+    )
+    assert route_after_review(state) == "write"
+
+
+def test_route_after_review_goes_to_write_when_run_duration_exceeded():
+    old_start_time = datetime.now(UTC) - timedelta(seconds=MAX_RUN_DURATION_SECONDS + 10)
+    state = ResearchState(
+        run_id="t1",
+        research_question="q",
+        findings=[],
+        research_pass_count=0,
+        started_at=old_start_time,
     )
     assert route_after_review(state) == "write"
