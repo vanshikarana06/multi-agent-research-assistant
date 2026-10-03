@@ -1,176 +1,95 @@
 # System Architecture
 
 **Status:** Living document — updated as the project evolves through phases.
-**Last updated:** Phase 0 (project scaffolding)
+**Last updated:** Phase 3-4 (LangGraph core + research system quality controls)
 
 ## Overview
 
 The Multi-Agent Research Assistant takes a research question, plans it into
-subquestions, dispatches researcher agents to gather evidence from the web,
-validates and synthesizes findings, and returns a citation-checked report.
+subquestions, dispatches a researcher agent to gather evidence from the web,
+validates and deduplicates findings, and returns a citation-checked report.
 
-Architecture style (current): **centralized supervisor + worker pattern**,
-sequential subquestion processing. Parallel fan-out/fan-in is a planned
-upgrade for a later phase — see Phase log below.
+Architecture style (current): **centralized, rule-based supervisor (Reviewer)
+with sequential subquestion processing**, compiled and executed as a LangGraph
+`StateGraph` with one conditional loop-back edge. Parallel fan-out/fan-in across
+subquestions remains a planned upgrade for a later phase.
 
 ## Diagram
 
 ```mermaid
 flowchart TB
     User["👤 User"]
+    START(["START"])
+    END(["END"])
 
-    subgraph API["FastAPI Layer"]
-        POST["POST /research<br/>returns run_id immediately"]
-        GET["GET /research/{run_id}<br/>status + result"]
-        TRACE["GET /research/{run_id}/trace<br/>debug trace"]
-        HEALTH["GET /health"]
-        CANCEL["POST /research/{run_id}/cancel"]
-    end
-
-    subgraph ORCH["LangGraph Orchestrator (StateGraph)"]
+    subgraph GRAPH["LangGraph StateGraph (ResearchState)"]
         direction TB
-        PLANNER["Planner Node<br/>1 LLM call → strict Pydantic plan"]
-        SUPERVISOR["Supervisor Node<br/>rule-based routing"]
-
-        subgraph WORKERS["Researcher Workers"]
-            R1["Researcher: subq 1"]
-            R2["Researcher: subq 2"]
-            R3["Researcher: subq N"]
-        end
-
-        VALIDATE["Evidence Validation<br/>schema + sanity checks"]
-        REVIEWER["Reviewer Node<br/>sufficient? contradictions?<br/>loop or proceed"]
-        WRITER["Writer Node<br/>synthesize report"]
-        CITECHECK["Citation Validator<br/>claim → finding → source<br/>hard fail if broken"]
+        PLAN["plan node<br/>PlannerAgent → ResearchPlan<br/>(max 5 subquestions, enforced)"]
+        RESEARCH["research node<br/>ResearcherAgent, per subquestion<br/>domain-limited search + index-grounded extraction"]
+        REVIEW["review node<br/>increments research_pass_count<br/>rule-based, not LLM-based"]
+        ROUTE{"route_after_review<br/>conditional edge"}
+        WRITE["write node<br/>dedup findings → WriterAgent → ResearchReport<br/>+ validate_citations (hard fail on invented ids)"]
     end
 
     subgraph TOOLS["Tools"]
         TAVILY["Tavily Web Search"]
-        FETCH["Page Fetch + Extraction"]
     end
 
-    subgraph LLM["Groq API"]
-        GROQ["LLM Inference<br/>structured outputs"]
+    subgraph LLM["Groq API (openai/gpt-oss-120b)"]
+        GROQ["LLMClient<br/>rate-limit retry + validation-retry-with-feedback"]
     end
 
-    subgraph STATE["Persistence Layer"]
-        EARLY["Phase 1-4: in-memory / SQLite"]
-        REDIS["Phase 5+: Redis<br/>checkpointing + crash recovery"]
-    end
+    User -->|"research question"| START
+    START --> PLAN
+    PLAN --> RESEARCH
+    RESEARCH --> REVIEW
+    REVIEW --> ROUTE
+    ROUTE -->|"no findings, budget remains"| RESEARCH
+    ROUTE -->|"findings exist, or budget exhausted"| WRITE
+    WRITE --> END
+    END --> User
 
-    subgraph OBS["Observability"]
-        TRACER["Step Tracer<br/>run_id, node, latency, tokens, errors"]
-    end
-
-    subgraph GUARD["Budget & Guardrails"]
-        BUDGET["Search / iteration / token limits"]
-        SEC["Prompt-injection defense<br/>treat web content as data"]
-    end
-
-    User -->|"research question"| POST
-    POST --> ORCH
-    User --> GET
-    User --> TRACE
-    User --> HEALTH
-    User --> CANCEL
-
-    PLANNER --> SUPERVISOR
-    SUPERVISOR -->|"dispatch subquestions"| WORKERS
-    R1 --> TAVILY
-    R2 --> TAVILY
-    R3 --> TAVILY
-    TAVILY --> FETCH
-    FETCH --> VALIDATE
-    WORKERS --> VALIDATE
-    VALIDATE --> REVIEWER
-    REVIEWER -->|"insufficient → another pass"| SUPERVISOR
-    REVIEWER -->|"sufficient"| WRITER
-    WRITER --> CITECHECK
-    CITECHECK -->|"invalid → fail loudly"| WRITER
-    CITECHECK -->|"valid"| REPORT["Final ResearchReport"]
-
-    PLANNER -.->|"structured call"| GROQ
-    R1 -.-> GROQ
-    R2 -.-> GROQ
-    R3 -.-> GROQ
-    REVIEWER -.-> GROQ
-    WRITER -.-> GROQ
-
-    ORCH -.->|"read/write state"| STATE
-    ORCH -.->|"record every step"| TRACER
-    ORCH -.->|"enforce limits"| BUDGET
-    WORKERS -.->|"sanitize untrusted content"| SEC
-
-    REPORT --> GET
-    TRACER --> TRACE
+    PLAN -.-> GROQ
+    RESEARCH -.-> GROQ
+    RESEARCH -.-> TAVILY
+    WRITE -.-> GROQ
 
     style User fill:#4a90d9,color:#fff
-    style REPORT fill:#2ecc71,color:#000
-    style REDIS fill:#e67e22,color:#000
+    style WRITE fill:#2ecc71,color:#000
     style GROQ fill:#9b59b6,color:#fff
     style TAVILY fill:#9b59b6,color:#fff
+    style ROUTE fill:#e67e22,color:#000
 ```
 
 ## Component responsibilities
 
 | Component | Responsibility |
 |---|---|
-| FastAPI layer | Accepts requests, returns `run_id` immediately, exposes status/trace polling |
-| Planner node | One structured LLM call → research plan + subquestions (Pydantic-validated) |
-| Supervisor node | Rule-based routing: dispatch work, decide on re-research passes |
-| Researcher workers | Search + fetch + extract evidence per subquestion, with provenance |
-| Evidence validation | Schema and sanity checks before findings enter shared state |
-| Reviewer node | Decides sufficiency, detects contradictions, loops back or proceeds |
-| Writer node | Synthesizes structured report from validated findings only |
-| Citation validator | Hard-fails the report if any claim can't be traced to a real source |
-| Persistence layer | Run state storage; SQLite/in-memory early, Redis from Phase 5 for checkpointing |
-| Observability | Step-level trace: node, input/output, latency, tokens, errors |
-| Budget & guardrails | Enforces hard limits on searches/iterations/tokens; treats web content as untrusted |
-
-## External service constraints (verified 2026-09-20, against live account dashboards)
-
-These are hard operational limits, verified directly against our own account
-dashboards — not secondary sources, which were found to reference outdated
-model names during initial research. Re-check periodically, as providers
-change these without notice.
-
-### Groq API (LLM inference)
-- Free tier, no credit card required.
-- Limits apply **per model, per organization** (not per API key) across
-  RPM / RPD / TPM / TPD.
-- Available chat models (verified via account dashboard, 2026-09-20):
-  `allam-2-7b`, `groq/compound`, `groq/compound-mini`, `openai/gpt-oss-120b`,
-  `openai/gpt-oss-20b`, `openai/gpt-oss-safeguard-20b`, `qwen/qwen3.8-27b`.
-- **Chosen model: `openai/gpt-oss-120b`** — largest available model at the
-  same free-tier ceiling as the smaller `20b` variant, so no capability
-  tradeoff exists at this tier.
-  Limits: 30 RPM / 1,000 RPD / 8,000 TPM / 200,000 TPD.
-- Exceeding any dimension → HTTP 429 with a `retry-after` header, plus
-  `x-ratelimit-remaining-*` headers on every response.
-- **Design implication:** 1,000 requests/day is a hard daily ceiling. At an
-  estimated 5-6 LLM calls per research run (planner, researchers, reviewer,
-  writer), this supports roughly 150-200 full research runs/day — sufficient
-  for a learning/portfolio project, but a real number that belongs in
-  budget-enforcement logic (Phase 5), not just a note.
-
-### Tavily (web search)
-- Free "Researcher" plan, no credit card required.
-- **1,000 API credits/month**, resets on the 1st of each calendar month.
-- 1 basic search = 1 credit. Covers search + extract endpoints.
-- Rate limit: 100 requests/minute on a dev key.
-- No overage billing on free tier — blocked/429 once credits exhausted.
-- **Design implication:** at ~6 searches/run (budget cap, see Budget &
-  Guardrails), supports 150+ full research runs/month before exhausting
-  the monthly quota. This number directly justifies the "max searches
-  per subquestion" and "max total searches per run" budget limits.
+| `LLMClient` | Rate-limit retry (verified against real Groq SDK internals) + validation-retry-with-feedback, bounded by `max_validation_retries` |
+| `SearchClient` | Thin wrapper over Tavily, no business logic |
+| `PlannerAgent` | One structured LLM call → `ResearchPlan`, hard-capped at 5 subquestions via Pydantic `max_length` |
+| `ResearcherAgent` | Per-subquestion: search → domain-limit results → LLM extracts claims as index pointers (never raw URLs) → own code resolves real `Source` data; skips out-of-range indices rather than crashing |
+| `review_node` | Rule-based pass-counter increment; routing decision lives in `route_after_review`, not inside the node |
+| `route_after_review` | Conditional edge: loop back to `research` if findings are empty and budget remains; otherwise proceed to `write` |
+| `WriterAgent` | Deduplicates findings (URL-normalized) at point of use, synthesizes `ResearchReport`, calls `validate_citations` before returning |
+| `validate_citations` | Standalone, LLM-free function; hard-fails if any `Citation.finding_id` doesn't match a real `Finding.id` |
+| `dedup.py` | `normalize_url` (strips query/fragment/trailing slash) + `deduplicate_findings`, applied once at write time to avoid reducer conflicts |
 
 ## Known simplifications (current phase)
 
 - No Redis yet — introduced deliberately in Phase 5 alongside checkpointing/crash-recovery teaching.
-- No parallel worker execution yet — sequential subquestion processing until the sequential path is proven correct.
-- No contradiction detection yet — planned as LLM-based pairwise claim comparison, not embedding/NLI-based (cost and complexity tradeoff, documented limitation).
+- No parallel worker execution yet — subquestions processed sequentially inside `research_node`.
+- `review_node`'s sufficiency check is a single rule (`len(findings) == 0`) — real evidence-sufficiency judgment, contradiction detection, and missing-source detection are deferred to Phase 6.
+- No contradiction detection yet.
+- Evidence is snippet-based (Tavily `content` field), not full-page extraction — open question, not yet resolved.
 - No long-term/episodic memory — deliberately excluded; each run is self-contained.
+- No arXiv integration yet — deferred; `Source`/`Finding` schemas are source-type-agnostic enough to extend later without a retrofit.
+- Domain limiting and URL deduplication are real, tested, and active — not simplifications, genuinely implemented.
 
 ## Phase log
 
-- **Phase 0 (current):** Project scaffolding, `uv`, `ruff`, package skeleton, Git/GitHub setup.
+- **Phase 0:** Project scaffolding, `uv`, `ruff`, package skeleton, Git/GitHub setup.
+- **Phase 1:** `Settings`, live Groq connection, structured-output pattern, `LLMClient` with verified rate-limit and validation retry, fully unit-tested.
+- **Phase 2:** `PlannerAgent`, `ResearcherAgent`, `WriterAgent` built independently, each live-tested end-to-end and unit-tested with mocks. Citation grounding (index-based, not LLM-typed URLs) established as a core pattern here, reused later.
+- **Phase 3:** LangGraph `StateGraph` — typed `ResearchState` with an accumulation reducer for `findings`; nodes built via dependency-injected factory functions (LangGraph's fixed `node(state)` signature required a closure-based pattern, not plain constructor injection); fixed + conditional edges; Reviewer node added with rule-based, budget-bounded routing. Full graph compiled and run live end-to-end.
+- **Phase 4 (partial):** Domain limiting inside `ResearcherAgent`; URL normalization and cross-subquestion deduplication applied at write time (deliberately not inside `review_node`, to avoid conflicting with the `findings` reducer). Both unit-tested in isolation and proven in live runs.
