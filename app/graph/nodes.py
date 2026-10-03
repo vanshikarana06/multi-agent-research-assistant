@@ -2,6 +2,7 @@ from app.agents.planner import PlannerAgent
 from app.agents.researcher import ResearcherAgent
 from app.agents.writer import WriterAgent
 from app.graph.state import ResearchState
+from app.services.dedup import deduplicate_findings
 
 MAX_RESEARCH_PASSES = 2
 
@@ -26,14 +27,17 @@ def make_research_node(researcher: ResearcherAgent):
 
 def make_write_node(writer: WriterAgent):
     def write_node(state: ResearchState) -> dict:
-        report = writer.write_report(state.plan, state.findings)
+        deduplicated = deduplicate_findings(state.findings)
+        report = writer.write_report(state.plan, deduplicated)
         return {"final_report": report, "status": "done"}
 
     return write_node
 
 
 def review_node(state: ResearchState) -> dict:
-    return {"research_pass_count": state.research_pass_count + 1}
+    return {
+        "research_pass_count": state.research_pass_count + 1,
+    }
 
 
 def route_after_review(state: ResearchState) -> str:

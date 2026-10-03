@@ -1,6 +1,6 @@
-from app.models.finding import Finding, Source
 from app.graph.nodes import MAX_RESEARCH_PASSES, route_after_review
 from app.graph.state import ResearchState
+from app.models.finding import Finding, Source
 
 
 def test_route_after_review_goes_to_research_when_no_findings_and_budget_remains():

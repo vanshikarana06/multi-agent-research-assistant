@@ -1,6 +1,10 @@
-from app.agents.researcher import ExtractedClaim, ExtractedClaims, ResearcherAgent
+from app.agents.researcher import (
+    ExtractedClaim,
+    ExtractedClaims,
+    ResearcherAgent,
+    _limit_results_per_domain,
+)
 from app.models.plan import SubQuestion
-from app.agents.researcher import _limit_results_per_domain
 
 
 def test_research_returns_findings_with_real_source_data(mocker):
@@ -85,6 +89,7 @@ def test_research_skips_claims_with_invalid_source_index(mocker):
 
     assert len(findings) == 1
     assert findings[0].claim == "Valid claim"
+
 
 def test_limit_results_per_domain_caps_duplicates():
     results = [

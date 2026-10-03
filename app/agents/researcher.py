@@ -15,6 +15,7 @@ information present in the provided results — do not use outside knowledge."""
 
 MAX_RESULTS_PER_DOMAIN = 2
 
+
 def _limit_results_per_domain(results: list[dict], max_per_domain: int) -> list[dict]:
     domain_counts: dict[str, int] = {}
     limited = []
@@ -25,6 +26,8 @@ def _limit_results_per_domain(results: list[dict], max_per_domain: int) -> list[
         domain_counts[domain] = domain_counts.get(domain, 0) + 1
         limited.append(result)
     return limited
+
+
 class ExtractedClaim(BaseModel):
     claim: str
     evidence: str
