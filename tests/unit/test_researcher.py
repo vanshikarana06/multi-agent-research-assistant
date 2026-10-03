@@ -1,5 +1,6 @@
 from app.agents.researcher import ExtractedClaim, ExtractedClaims, ResearcherAgent
 from app.models.plan import SubQuestion
+from app.agents.researcher import _limit_results_per_domain
 
 
 def test_research_returns_findings_with_real_source_data(mocker):
@@ -84,3 +85,16 @@ def test_research_skips_claims_with_invalid_source_index(mocker):
 
     assert len(findings) == 1
     assert findings[0].claim == "Valid claim"
+
+def test_limit_results_per_domain_caps_duplicates():
+    results = [
+        {"url": "https://a.com/1", "title": "A1", "content": "x"},
+        {"url": "https://a.com/2", "title": "A2", "content": "x"},
+        {"url": "https://a.com/3", "title": "A3", "content": "x"},
+        {"url": "https://b.com/1", "title": "B1", "content": "x"},
+    ]
+    limited = _limit_results_per_domain(results, max_per_domain=2)
+
+    assert len(limited) == 3  # 2 from a.com + 1 from b.com
+    a_com_count = sum(1 for r in limited if "a.com" in r["url"])
+    assert a_com_count == 2

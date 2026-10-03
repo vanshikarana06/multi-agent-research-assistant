@@ -13,7 +13,18 @@ a numbered list of search results, extract factual claims that help answer the \
 subquestion. For each claim, cite which result index it came from. Only use \
 information present in the provided results — do not use outside knowledge."""
 
+MAX_RESULTS_PER_DOMAIN = 2
 
+def _limit_results_per_domain(results: list[dict], max_per_domain: int) -> list[dict]:
+    domain_counts: dict[str, int] = {}
+    limited = []
+    for result in results:
+        domain = result["url"].split("/")[2]
+        if domain_counts.get(domain, 0) >= max_per_domain:
+            continue
+        domain_counts[domain] = domain_counts.get(domain, 0) + 1
+        limited.append(result)
+    return limited
 class ExtractedClaim(BaseModel):
     claim: str
     evidence: str
@@ -32,6 +43,7 @@ class ResearcherAgent:
 
     def research(self, subquestion: SubQuestion) -> list[Finding]:
         results = self._search_client.search(subquestion.question)
+        results = _limit_results_per_domain(results, MAX_RESULTS_PER_DOMAIN)
 
         numbered_results = "\n\n".join(
             f"[{i}] {r['title']} ({r['url']})\n{r['content']}" for i, r in enumerate(results)
