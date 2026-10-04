@@ -4,11 +4,11 @@ from datetime import UTC, datetime
 
 from app.models.report import ResearchReport
 
-DB_PATH = "research_runs.db"
+DEFAULT_DB_PATH = "research_runs.db"
 
 
-def _get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+def _get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS runs (
@@ -25,8 +25,8 @@ def _get_connection() -> sqlite3.Connection:
     return conn
 
 
-def create_run(run_id: str, research_question: str) -> None:
-    conn = _get_connection()
+def create_run(run_id: str, research_question: str, db_path: str = DEFAULT_DB_PATH) -> None:
+    conn = _get_connection(db_path)
     conn.execute(
         "INSERT INTO runs (run_id, research_question, status, created_at) VALUES (?, ?, ?, ?)",
         (run_id, research_question, "planning", datetime.now(UTC).isoformat()),
@@ -35,8 +35,8 @@ def create_run(run_id: str, research_question: str) -> None:
     conn.close()
 
 
-def mark_run_completed(run_id: str, report: ResearchReport) -> None:
-    conn = _get_connection()
+def mark_run_completed(run_id: str, report: ResearchReport, db_path: str = DEFAULT_DB_PATH) -> None:
+    conn = _get_connection(db_path)
     conn.execute(
         "UPDATE runs SET status = ?, final_report = ?, completed_at = ? WHERE run_id = ?",
         ("done", report.model_dump_json(), datetime.now(UTC).isoformat(), run_id),
@@ -45,8 +45,8 @@ def mark_run_completed(run_id: str, report: ResearchReport) -> None:
     conn.close()
 
 
-def mark_run_failed(run_id: str, error: str) -> None:
-    conn = _get_connection()
+def mark_run_failed(run_id: str, error: str, db_path: str = DEFAULT_DB_PATH) -> None:
+    conn = _get_connection(db_path)
     conn.execute(
         "UPDATE runs SET status = ?, error = ?, completed_at = ? WHERE run_id = ?",
         ("failed", error, datetime.now(UTC).isoformat(), run_id),
@@ -55,8 +55,8 @@ def mark_run_failed(run_id: str, error: str) -> None:
     conn.close()
 
 
-def get_run(run_id: str) -> dict | None:
-    conn = _get_connection()
+def get_run(run_id: str, db_path: str = DEFAULT_DB_PATH) -> dict | None:
+    conn = _get_connection(db_path)
     cursor = conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,))
     row = cursor.fetchone()
     conn.close()
