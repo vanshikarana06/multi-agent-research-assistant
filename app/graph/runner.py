@@ -1,12 +1,9 @@
-import uuid
-
 from app.graph.build import build_graph
 from app.graph.state import ResearchState
 from app.storage.run_store import create_run, mark_run_completed, mark_run_failed
 
 
-def run_research(research_question: str) -> dict:
-    run_id = str(uuid.uuid4())
+def run_research(run_id: str, research_question: str) -> dict:
     create_run(run_id, research_question)
 
     graph = build_graph()
