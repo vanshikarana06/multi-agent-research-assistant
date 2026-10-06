@@ -9,6 +9,7 @@ dependencies = [
     "groq>=1.7.0",
     "langgraph>=1.2.12",
     "pydantic-settings>=2.15.0",
+    "redis>=8.1.0",
     "tavily-python>=0.8.4",
     "uvicorn[standard]>=0.54.0",
 ]
