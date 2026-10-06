@@ -1,3 +1,5 @@
+from langgraph.checkpoint.redis import RedisSaver
+
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.planner import PlannerAgent
@@ -36,4 +38,7 @@ def build_graph():
     graph_builder.add_conditional_edges("review", route_after_review)
     graph_builder.add_edge("write", END)
 
-    return graph_builder.compile()
+    checkpointer = RedisSaver(redis_url="redis://localhost:6379")
+    checkpointer.setup()
+
+    return graph_builder.compile(checkpointer=checkpointer)
