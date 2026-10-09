@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     groq_api_key: str = Field(..., min_length=1)
     tavily_api_key: str = Field(..., min_length=1)
+    redis_url: str = "redis://localhost:6379"
 
 
 settings = Settings()

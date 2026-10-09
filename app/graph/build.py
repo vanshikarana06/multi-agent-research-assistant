@@ -3,6 +3,7 @@ from langgraph.graph import END, START, StateGraph
 from app.agents.planner import PlannerAgent
 from app.agents.researcher import ResearcherAgent
 from app.agents.writer import WriterAgent
+from app.core.config import settings
 from app.graph.nodes import (
     make_plan_node,
     make_research_node,
@@ -37,6 +38,6 @@ def build_graph():
     graph_builder.add_conditional_edges("review", route_after_review)
     graph_builder.add_edge("write", END)
 
-    checkpointer = make_checkpointer("redis://localhost:6379")
+    checkpointer = make_checkpointer(settings.redis_url)
 
     return graph_builder.compile(checkpointer=checkpointer)
