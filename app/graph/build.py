@@ -12,6 +12,7 @@ from app.graph.nodes import (
     route_after_review,
 )
 from app.graph.state import ResearchState
+from app.observability.tracing import traced
 from app.services.llm_client import LLMClient
 from app.services.search_client import SearchClient
 from app.storage.checkpointing import make_checkpointer
@@ -27,10 +28,20 @@ def build_graph():
 
     graph_builder = StateGraph(ResearchState)
 
-    graph_builder.add_node("plan", make_plan_node(planner))
-    graph_builder.add_node("research", make_research_node(researcher))
-    graph_builder.add_node("write", make_write_node(writer))
-    graph_builder.add_node("review", review_node)
+    graph_builder.add_node(
+        "plan",
+        traced("plan", lambda r: f"{len(r['plan'].subquestions)} subquestions")(
+            make_plan_node(planner)
+        ),
+    )
+    graph_builder.add_node(
+        "research",
+        traced("research", lambda r: f"{len(r['findings'])} findings")(
+            make_research_node(researcher)
+        ),
+    )
+    graph_builder.add_node("write", traced("write")(make_write_node(writer)))
+    graph_builder.add_node("review", traced("review")(review_node))
 
     graph_builder.add_edge(START, "plan")
     graph_builder.add_edge("plan", "research")
